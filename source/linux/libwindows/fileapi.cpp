@@ -164,3 +164,7 @@ BOOL GetSaveFileName(LPOPENFILENAME lpofn)
 {
     return FALSE;
 }
+
+DWORD QueryDosDevice(LPCSTR lpDeviceName, LPSTR lpTargetPath, DWORD ucchMax) {
+    return 0;
+}

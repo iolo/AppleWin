@@ -1,5 +1,6 @@
 #pragma once
 
+#include "winbase.h"
 #include "wincompat.h"
 #include "winhandles.h"
 
@@ -67,3 +68,5 @@ DWORD GetFileSize(HANDLE hFile, LPDWORD lpFileSizeHigh);
 
 // non "/" terminated
 DWORD GetCurrentDirectory(DWORD, char *);
+
+DWORD QueryDosDevice(LPCSTR lpDeviceName, LPSTR lpTargetPath, DWORD ucchMax);

@@ -27,7 +27,7 @@ class CSuperSerialCard : public Card
 public:
 	CSuperSerialCard(UINT slot);
 	virtual ~CSuperSerialCard();
-	virtual void Update(const ULONG nExecutedCycles) {}
+	virtual void Update(const ULONG nExecutedCycles);
 	virtual void InitializeIO(LPBYTE pCxRomPeripheral);
 	virtual void Reset(const bool powerCycle);
 	virtual void Destroy() {}
@@ -44,7 +44,7 @@ public:
 	void	SupportDCD(bool bEnable) { m_bCfgSupportDCD = bEnable; }	// Status
 
 	void	CommTcpSerialAccept();
-	void	CommTcpSerialReceive();
+	bool	CommTcpSerialReceive();
 	void	CommTcpSerialClose();
 	void	CommTcpSerialCleanup();
 
@@ -81,6 +81,8 @@ private:
 	void	SetRegistrySerialPortName(void);
 	void	SaveSnapshotDIPSW(class YamlSaveHelper& yamlSaveHelper, std::string key, SSC_DIPSW& dipsw);
 	void	LoadSnapshotDIPSW(class YamlLoadHelper& yamlLoadHelper, std::string key, SSC_DIPSW& dipsw);
+
+	bool IsSocketError();
 
 	//
 

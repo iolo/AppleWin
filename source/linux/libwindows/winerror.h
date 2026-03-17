@@ -23,3 +23,7 @@
 
 #define HRESULT_CODE(hr) ((hr) & 0xFFFF)
 #define SCODE_CODE(sc) ((sc) & 0xFFFF)
+
+#define ERROR_IO_PENDING                                   997
+
+#define ERROR_INSUFFICIENT_BUFFER                          122

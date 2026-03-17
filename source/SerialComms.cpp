@@ -45,6 +45,10 @@ Foundation, Inc., 59 Temple Place, Suite 330, Boston, MA  02111-1307  USA
 
 #include "../resource/resource.h"
 
+#include <netinet/in.h>
+#include <sys/socket.h>
+#include <unistd.h>
+
 #define TCP_SERIAL_PORT 1977
 
 const UINT CSuperSerialCard::SERIALPORTITEM_INVALID_COM_PORT = 0;
@@ -229,7 +233,7 @@ bool CSuperSerialCard::CheckComm()
 			}
 
 			// initialized, so try to create a socket
-			m_hCommListenSocket = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+			m_hCommListenSocket = socket(AF_INET, SOCK_STREAM | SOCK_NONBLOCK, IPPROTO_TCP);
 			if (m_hCommListenSocket == INVALID_SOCKET)
 			{
 				WSACleanup();
@@ -367,7 +371,7 @@ void CSuperSerialCard::CommTcpSerialAccept()
 	if ((m_hCommListenSocket != INVALID_SOCKET) && (m_hCommAcceptSocket == INVALID_SOCKET))
 	{
 		// Y: accept the connection
-		m_hCommAcceptSocket = accept(m_hCommListenSocket, NULL, NULL);
+		m_hCommAcceptSocket = accept4(m_hCommListenSocket, NULL, NULL, SOCK_NONBLOCK);
 	}
 }
 
@@ -375,8 +379,9 @@ void CSuperSerialCard::CommTcpSerialAccept()
 
 // Called when there's a TCP event via the message pump
 // . Because it's via the message pump, then this call is synchronous to CommReceive(), so there's no need for a critical section
-void CSuperSerialCard::CommTcpSerialReceive()
+bool CSuperSerialCard::CommTcpSerialReceive()
 {
+	bool ok = true;
 	if (m_hCommAcceptSocket != INVALID_SOCKET)
 	{
 		char Data[0x80];
@@ -389,12 +394,18 @@ void CSuperSerialCard::CommTcpSerialReceive()
 			}
 		}
 
+		if (nReceived < 0)
+		{
+			ok = !IsSocketError();
+		}
+
 		if (m_bRxIrqEnabled && !m_qTcpSerialBuffer.empty())
 		{
 			CpuIrqAssert(IS_SSC);
 			m_vbRxIrqPending = true;
 		}
 	}
+	return ok;
 }
 
 //===========================================================================
@@ -751,9 +762,13 @@ BYTE __stdcall CSuperSerialCard::CommTransmit(WORD, WORD, BYTE, BYTE value, ULON
 		{
 			data &= ~(1 << m_uByteSize);
 		}
-		int sent = send(m_hCommAcceptSocket, (const char*)&data, 1, 0);
-		_ASSERT(sent == 1);
-		if (sent == 1)
+		int sent = send(m_hCommAcceptSocket, (const char*)&data, 1, MSG_NOSIGNAL);
+
+		if (sent < 0 && IsSocketError())
+		{
+			CommTcpSerialClose();
+		}
+		else if (sent == 1)
 		{
 			m_vbTxEmpty = false;
 			// Assume that send() completes immediately
@@ -1388,6 +1403,21 @@ void CSuperSerialCard::SetRegistrySerialPortName(void)
 {
 	std::string regSection = RegGetConfigSlotSection(m_slot);
 	RegSaveString(regSection.c_str(), REGVALUE_SERIAL_PORT_NAME, TRUE, GetSerialPortName());
+}
+
+bool CSuperSerialCard::IsSocketError()
+{
+	const int err = errno;
+	return (err != EINPROGRESS) && (err != EWOULDBLOCK);
+}
+
+void CSuperSerialCard::Update(const ULONG nExecutedCycles)
+{
+	CommTcpSerialAccept();
+	if (!CommTcpSerialReceive())
+	{
+		CommTcpSerialClose();
+	}
 }
 
 //===========================================================================
